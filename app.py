@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from src.rag import build_vectorstore, retrieve_context
 from src.tools import consultar_gastos, listar_meses_com_gastos
 from src.guardrails import validate_input, validate_output
+from src.router import route
 
 base = Path(__file__).resolve().parent
 load_dotenv(base / ".env")
@@ -34,29 +35,35 @@ while True:
         print(f"\nAssistente: {erro}")
         continue
 
-    docs = retrieve_context(vectorstore, pergunta)
-    contexto = "\n\n".join([doc.page_content for doc in docs])
+    rota = route(pergunta)
 
-    prompt = f"""Use o contexto das políticas abaixo para responder. Se a pergunta for sobre gastos/despesas por mês, use as ferramentas disponíveis para consultar os dados.
+    if rota == "tool":
+        prompt = f"""O usuário perguntou sobre gastos/despesas de um mês. Use as ferramentas consultar_gastos ou listar_meses_com_gastos.
+- consultar_gastos exige o mês no formato 2026-01. Se a pessoa disser "janeiro", use 2026-01; "fevereiro" → 2026-02; "março" → 2026-03 (ano atual 2026).
+- Se não souber o mês exato, use listar_meses_com_gastos para ver os disponíveis.
 
-Regras:
-- Responda com base no contexto quando for sobre políticas.
-- Para perguntas sobre quanto gastamos, em qual mês, etc., use as tools consultar_gastos ou listar_meses_com_gastos.
-- Só diga "Não encontrei essa informação" quando não tiver contexto nem resultado de ferramenta sobre o tema.
+Pergunta: {pergunta}"""
+    elif rota == "rag":
+        docs = retrieve_context(vectorstore, pergunta)
+        contexto = "\n\n".join([doc.page_content for doc in docs])
+        prompt = f"""Use o contexto das políticas abaixo para responder. Se precisar de dados de gastos por mês, use as ferramentas disponíveis.
 
 Contexto (políticas):
 {contexto}
 
-Pergunta:
-{pergunta}
-"""
+Pergunta: {pergunta}"""
+    else:
+        # direct
+        prompt = f"""Responda de forma breve e útil. Se a pergunta for sobre gastos por mês, você pode usar as ferramentas consultar_gastos ou listar_meses_com_gastos.
+
+Pergunta: {pergunta}"""
 
     mensagens = [HumanMessage(content=prompt)]
 
     while True:
         resposta = llm_com_tools.invoke(mensagens)
         if not getattr(resposta, "tool_calls", None):
-            saida = validate_output(resposta.content)
+            saida = validate_output(resposta.content or "")
             print(f"\nAssistente: {saida}")
             break
         mensagens.append(resposta)

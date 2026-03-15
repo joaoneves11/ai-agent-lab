@@ -8,6 +8,7 @@ ALLOWED_TOPICS = [
     "reembolso",
     "viagens",
     "despesas",
+    "gastos",
     "política",
     "financeiro",
     "rh",
