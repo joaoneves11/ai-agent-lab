@@ -5,6 +5,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, ToolMessage
 from src.rag import build_vectorstore, retrieve_context
 from src.tools import consultar_gastos, listar_meses_com_gastos
+from src.guardrails import validate_input, validate_output
 
 base = Path(__file__).resolve().parent
 load_dotenv(base / ".env")
@@ -28,6 +29,11 @@ while True:
     if pergunta.lower() in ["sair", "exit", "quit"]:
         break
 
+    ok, erro = validate_input(pergunta)
+    if not ok:
+        print(f"\nAssistente: {erro}")
+        continue
+
     docs = retrieve_context(vectorstore, pergunta)
     contexto = "\n\n".join([doc.page_content for doc in docs])
 
@@ -50,7 +56,8 @@ Pergunta:
     while True:
         resposta = llm_com_tools.invoke(mensagens)
         if not getattr(resposta, "tool_calls", None):
-            print(f"\nAssistente: {resposta.content}")
+            saida = validate_output(resposta.content)
+            print(f"\nAssistente: {saida}")
             break
         mensagens.append(resposta)
         for tc in resposta.tool_calls:

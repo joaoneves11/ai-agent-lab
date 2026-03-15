@@ -1,8 +1,10 @@
-langchain
-langgraph
+# Core
+python-dotenv
 langchain-openai
+langchain-core
 langchain-community
 faiss-cpu
-pypdf
-python-dotenv
-tiktoken
+
+# Opcional: filtro de linguagem tóxica na saída (guardar_saida)
+# Descomente e depois rode: guardrails hub install hub://guardrails/toxic_language --quiet
+# guardrails-ai>=0.5.13
