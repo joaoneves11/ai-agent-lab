@@ -12,7 +12,10 @@ ALLOWED_TOPICS = [
     "política",
     "financeiro",
     "rh",
+    "total",
+    "ano",
 ]
+
 
 BLOCKED_TERMS = [
     "salário de todos",
@@ -34,10 +37,9 @@ def validate_input(user_input: str) -> tuple[bool, str | None]:
         if term in lower:
             return False, "Pergunta bloqueada por política de segurança."
 
-    if not any(topic in lower for topic in ALLOWED_TOPICS):
-        return False, "Posso ajudar apenas com políticas internas e consultas autorizadas."
-
-    return True, None
+    if any(topic in lower for topic in ALLOWED_TOPICS):
+        return True, None
+    return False, "Posso ajudar apenas com políticas internas e consultas autorizadas."
 
 
 def validate_output(text: str) -> str:

@@ -1,12 +1,13 @@
+
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, ToolMessage
-from src.rag import build_vectorstore, retrieve_context
+
+from src.graph import build_graph
+from src.rag import build_vectorstore
 from src.tools import consultar_gastos, listar_meses_com_gastos
-from src.guardrails import validate_input, validate_output
-from src.router import route
 
 base = Path(__file__).resolve().parent
 load_dotenv(base / ".env")
@@ -23,6 +24,8 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=os.getenv("OPENAI_A
 llm_com_tools = llm.bind_tools(tools)
 vectorstore = build_vectorstore(base)
 
+graph = build_graph(llm_com_tools, vectorstore, tools_por_nome, base)
+
 print("Assistente pronto. Pergunte sobre férias, reembolso, viagens ou gastos (ou digite sair).")
 
 while True:
@@ -30,46 +33,5 @@ while True:
     if pergunta.lower() in ["sair", "exit", "quit"]:
         break
 
-    ok, erro = validate_input(pergunta)
-    if not ok:
-        print(f"\nAssistente: {erro}")
-        continue
-
-    rota = route(pergunta)
-
-    if rota == "tool":
-        prompt = f"""O usuário perguntou sobre gastos/despesas de um mês. Use as ferramentas consultar_gastos ou listar_meses_com_gastos.
-- consultar_gastos exige o mês no formato 2026-01. Se a pessoa disser "janeiro", use 2026-01; "fevereiro" → 2026-02; "março" → 2026-03 (ano atual 2026).
-- Se não souber o mês exato, use listar_meses_com_gastos para ver os disponíveis.
-
-Pergunta: {pergunta}"""
-    elif rota == "rag":
-        docs = retrieve_context(vectorstore, pergunta)
-        contexto = "\n\n".join([doc.page_content for doc in docs])
-        prompt = f"""Use o contexto das políticas abaixo para responder. Se precisar de dados de gastos por mês, use as ferramentas disponíveis.
-
-Contexto (políticas):
-{contexto}
-
-Pergunta: {pergunta}"""
-    else:
-        # direct
-        prompt = f"""Responda de forma breve e útil. Se a pergunta for sobre gastos por mês, você pode usar as ferramentas consultar_gastos ou listar_meses_com_gastos.
-
-Pergunta: {pergunta}"""
-
-    mensagens = [HumanMessage(content=prompt)]
-
-    while True:
-        resposta = llm_com_tools.invoke(mensagens)
-        if not getattr(resposta, "tool_calls", None):
-            saida = validate_output(resposta.content or "")
-            print(f"\nAssistente: {saida}")
-            break
-        mensagens.append(resposta)
-        for tc in resposta.tool_calls:
-            fn = tools_por_nome.get(tc["name"])
-            resultado = fn.invoke(tc["args"]) if fn else "Ferramenta não encontrada."
-            mensagens.append(
-                ToolMessage(content=str(resultado), tool_call_id=tc["id"])
-            )
+    result = graph.invoke({"query": pergunta})
+    print(f"\nAssistente: {result.get('final_response', '')}")

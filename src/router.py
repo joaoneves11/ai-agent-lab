@@ -13,7 +13,7 @@ def route(query: str) -> str:
 
     lower = query.lower().strip()
 
-    if "2026-" in lower or "gasto" in lower or "despesa" in lower:
+    if "2026-" in lower or "gastos" in lower or "despesa" in lower:
         return "tool"
 
     if any(topic in lower for topic in RAG_TOPICS):

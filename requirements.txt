@@ -4,6 +4,7 @@ langchain-openai
 langchain-core
 langchain-community
 faiss-cpu
+langgraph
 
 # Opcional: filtro de linguagem tóxica na saída (guardar_saida)
 # Descomente e depois rode: guardrails hub install hub://guardrails/toxic_language --quiet
